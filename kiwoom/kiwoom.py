@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 from config.errorCode import *
@@ -15,7 +16,6 @@ class Kiwoom(QAxWidget):
         self.logging = Logging()
         self.slack = Slack() #슬랙 동작
 
-        # print("Kiwoom() class start.")
         self.logging.logger.debug("Kiwoom() class start.")
 
         ####### event loop를 실행하기 위한 변수 모음
@@ -35,9 +35,9 @@ class Kiwoom(QAxWidget):
         self.deposit = 0 #예수금
         self.use_money = 0 #실제 투자에 사용할 금액
         self.use_money_percent = 0.5 #예수금에서 실제 사용할 비율
-        self.output_deposit = 0 #출력가능 금액
-        self.total_profit_loss_money = 0 #총평가손익금액
-        self.total_profit_loss_rate = 0.0 #총수익률(%)
+        self.output_deposit = 0 #출금 가능 금액
+        self.total_profit_loss_money = 0 #총 평가 손익 금액
+        self.total_profit_loss_rate = 0.0 #총 수익률(%)
         ########################################
 
         ######## 종목 정보 가져오기
@@ -60,43 +60,38 @@ class Kiwoom(QAxWidget):
         ######### 초기 셋팅 함수들 바로 실행
         self.get_ocx_instance() # OCX 방식을 파이썬에 사용할 수 있게 반환해 주는 함수 실행
         self.event_slots() # 키움과 연결하기 위한 시그널 / 슬롯 모음
-        self.real_event_slot()  # 실시간 이벤트 시그널 / 슬롯 연결
+        # self.real_event_slot()  # 실시간 이벤트 시그널 / 슬롯 연결
         self.signal_login_commConnect() # 로그인 요청 함수 포함
         self.get_account_info() #계좌번호 가져오기
 
-        self.detail_account_info() # 예수금 요청 시그널 포함
-        self.detail_account_mystock() #계좌평가잔고내역 가져오기
-        QTimer.singleShot(5000, self.not_concluded_account) #5초 뒤에 미체결 종목들 가져오기 실행
+        # self.detail_account_info() # 예수금 요청 시그널 포함
+        # self.detail_account_mystock() #계좌평가잔고내역 가져오기
+        # QTimer.singleShot(5000, self.not_concluded_account) #5초 뒤에 미체결 종목들 가져오기 실행
         #########################################
 
-        QTest.qWait(10000)
-        self.read_code()
-        self.screen_number_setting()
+        # QTest.qWait(10000)
+        # self.read_code()
+        # self.screen_number_setting()
 
-        QTest.qWait(5000)
+        # QTest.qWait(5000)
 
         #실시간 수신 관련 함수
-        self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen_start_stop_real, '', self.realType.REALTYPE['장시작시간']['장운영구분'], "0")
+        # self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen_start_stop_real, '', self.realType.REALTYPE['장시작시간']['장운영구분'], "0")
 
-        for code in self.portfolio_stock_dict.keys():
-            screen_num = self.portfolio_stock_dict[code]['스크린번호']
-            fids = self.realType.REALTYPE['주식체결']['체결시간']
-            self.dynamicCall("SetRealReg(QString, QString, QString, QString)", screen_num, code, fids, "1")
+        # for code in self.portfolio_stock_dict.keys():
+        #     screen_num = self.portfolio_stock_dict[code]['스크린번호']
+        #     fids = self.realType.REALTYPE['주식체결']['체결시간']
+        #     self.dynamicCall("SetRealReg(QString, QString, QString, QString)", screen_num, code, fids, "1")
 
-        self.slack.send_msg(msg="주식 자동화 프로그램이 동작 되었습니다.")
-        # self.slack.notification(
-        #     pretext="주식자동화 프로그램 동작",
-        #     title="주식 자동화 프로그램 동작",
-        #     fallback="주식 자동화 프로그램 동작",
-        #     text="주식 자동화 프로그램이 동작 되었습니다."
-        # )
+        # self.slack.send_msg(msg="주식 자동화 프로그램이 동작 되었습니다.")
+
 
     def get_ocx_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1") # 레지스트리에 저장된 API 모듈 불러오기
 
     def event_slots(self):
-        self.OnEventConnect.connect(self.login_slot) # 로그인 관련 이벤트
-        self.OnReceiveTrData.connect(self.trdata_slot) # 트랜잭션 요청 관련 이벤트
+        self.OnEventConnect.connect(self.login_slot) # 로그인 관련 이벤트 - 시그널 : CommConnect()
+        self.OnReceiveTrData.connect(self.trdata_slot) # 트랜잭션 요청 관련 이벤트 - 시그널 : CommRqData()
         self.OnReceiveMsg.connect(self.msg_slot)
 
     def real_event_slot(self):
@@ -116,7 +111,23 @@ class Kiwoom(QAxWidget):
 
     def get_account_info(self):
         account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO") # 계좌번호 반환
-        account_num = account_list.split(';')[0] # a;b;c  [a, b, c]
+        # account_num = account_list.split(';')[0] # a;b;c  [a, b, c]
+
+        account_list = account_list.split(';')
+        account_dict = dict(zip(range(1,len(account_list)), account_list))
+        while(True):
+            num = input("Choose your number " + str(account_dict) + " : ")
+            if (re.search('^([0-9]+)$', num)):
+                num = int(num)
+                if(num not in list(range(1,len(account_list)))):
+                    print("Your number is not available.")
+                    continue
+            else:
+                print("Your number is not available.")
+                continue
+
+            account_num = account_dict[num]
+            break
 
         self.account_num = account_num
 
@@ -498,7 +509,7 @@ class Kiwoom(QAxWidget):
                 QTest.qWait(5000)
 
                 self.file_delete()
-                self.calculator_fnc()
+                # self.calculator_fnc()
 
                 sys.exit()
 
