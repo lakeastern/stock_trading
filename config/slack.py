@@ -1,12 +1,15 @@
 import requests
-from config.mytoken import *
+from config.myInfo import *
 
 class Slack():
+    def __init__(self):
+        self.myInfo = MyInfo()
+
     def send_msg(self, msg=""):
         response = requests.post(
             'https://slack.com/api/chat.postMessage',
             headers={
-                'Authorization': 'Bearer ' + mytoken()
+                'Authorization': 'Bearer ' + self.myInfo.token
             },
             data={
                 'channel':'#realmessage',

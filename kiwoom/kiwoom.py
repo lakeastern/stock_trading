@@ -6,12 +6,14 @@ from PyQt5.QtCore import *
 from config.errorCode import *
 from PyQt5.QtTest import *
 from config.kiwoomType import *
+from config.myInfo import *
 from config.log_class import *
 from config.slack import *
 
 class Kiwoom(QAxWidget):
     def __init__(self):
         super().__init__()
+        self.myInfo = MyInfo()
         self.realType = RealType()
         self.logging = Logging()
         self.slack = Slack() #슬랙 동작
@@ -64,7 +66,7 @@ class Kiwoom(QAxWidget):
         self.signal_login_commConnect() # 로그인 요청 함수 포함
         self.get_account_info() #계좌번호 가져오기
 
-        # self.detail_account_info() # 예수금 요청 시그널 포함
+        self.detail_account_info() # 예수금 요청 시그널 포함
         # self.detail_account_mystock() #계좌평가잔고내역 가져오기
         # QTimer.singleShot(5000, self.not_concluded_account) #5초 뒤에 미체결 종목들 가져오기 실행
         #########################################
@@ -134,8 +136,13 @@ class Kiwoom(QAxWidget):
         self.logging.logger.debug("계좌번호 : %s" % account_num)
 
     def detail_account_info(self, sPrevNext="0"):
+        try:
+            secret_num = self.myInfo.account[self.account_num]
+        except:
+            secret_num = '0000'
+
         self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_num)
-        self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", "0000")
+        self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", secret_num)
         self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
         self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "예수금상세현황요청", "opw00001", sPrevNext, self.screen_my_info)
